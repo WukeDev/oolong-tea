@@ -6,9 +6,8 @@ set -e
 # ==================
 WEBSITE="domain.com"          # Your domain
 MASK_SITE="www.microsoft.com"      # Reality masking site
-SHORT_ID=$(openssl rand -hex 4)      # Your preferred short ID (or use random: $(openssl rand -hex 4)
+SHORT_ID=$(openssl rand -hex 4)      # Your preferred short ID
 PORT=443
-
 
 # ========================
 # CLEANUP PREVIOUS INSTALL
@@ -38,9 +37,18 @@ rm -rf xray-tmp xray.zip
 # ==================
 echo "[+] Generating keys..."
 XRAY_KEYS=$(/usr/local/bin/xray x25519)
-XRAY_PRIVATE_KEY=$(echo "$XRAY_KEYS" | awk '/Private key:/ {print $3}')
-XRAY_PUBLIC_KEY=$(echo "$XRAY_KEYS" | awk '/Public key:/ {print $3}')
-XRAY_UUID=$(/usr/local/bin/xray uuid)  # Auto-generated UUID
+
+# Ultra-robust extraction: catches "Private key", "PrivateKey", "PublicKey", etc.
+XRAY_PRIVATE_KEY=$(echo "$XRAY_KEYS" | grep -iE "Private[ -]?Key" | awk '{print $NF}')
+XRAY_PUBLIC_KEY=$(echo "$XRAY_KEYS" | grep -iE "Public[ -]?Key" | awk '{print $NF}')
+XRAY_UUID=$(/usr/local/bin/xray uuid)
+
+# Safety Check: Ensure keys are not empty before proceeding
+if [[ -z "$XRAY_PRIVATE_KEY" || -z "$XRAY_PUBLIC_KEY" || -z "$XRAY_UUID" ]]; then
+    echo "[-] Error: Failed to generate or parse Xray keys."
+    echo "Raw output was: $XRAY_KEYS"
+    exit 1
+fi
 
 # ===========
 # XRAY CONFIG
@@ -127,7 +135,7 @@ sleep 3
 # ===============
 echo -e "\n[✔] Xray Reality Setup Complete!"
 echo -e "\n=== Xray Status ==="
-sudo systemctl status xray --no-pager
+sudo systemctl status xray --no-pager || true
 
 echo -e "\n=== Generated Secrets ==="
 echo "UUID: $XRAY_UUID"
